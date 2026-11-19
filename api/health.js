@@ -1,6 +1,6 @@
 // GET /api/health  ->  a plain-English check that the TMDB key is set up. Never shows the key itself.
 const { readToken, tmdb } = require('./_tmdb.js');
-const { dbConf } = require('./_db.js');
+const { dbConf, pipeline } = require('./_db.js');
 
 module.exports = async function handler(req, res) {
   const tok = readToken();
@@ -16,7 +16,12 @@ module.exports = async function handler(req, res) {
         : 'Could not reach TMDB right now (' + (e.status || e.message) + '). Try again in a minute.';
     }
   }
-  out.stats_database = dbConf() ? 'connected' : 'not connected (Vercel > Storage > Upstash Redis)';
+  const db = dbConf();
+  if (!db) out.stats_database = 'not connected. In Vercel: Storage > your Redis database > Connect Project > matchmymovie, then Redeploy.';
+  else {
+    try { await pipeline([['PING']]); out.stats_database = `connected (${db.kind === 'rest' ? 'Upstash' : 'Redis'})`; }
+    catch (e) { out.stats_database = `found the database settings but could not connect (${e.message})`; }
+  }
   out.stats_password = process.env.STATS_PASSWORD ? 'set' : 'not set (add STATS_PASSWORD)';
   res.statusCode = 200;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
