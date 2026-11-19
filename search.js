@@ -1,7 +1,7 @@
 // GET /api/search?q=knives  ->  up to 6 matching movies for the "movie you loved" box
-import { tmdb, sendJson, query } from './_tmdb.js';
+const { tmdb, sendJson, query } = require('./_tmdb.js');
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   const q = (query(req).q || '').trim().slice(0, 80);
   if (q.length < 2) return sendJson(res, 200, { results: [] });
   try {

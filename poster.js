@@ -2,7 +2,7 @@
 // Passes a TMDB poster through our own domain, so the share-ticket drawing can use it.
 // (Browsers won't let a page turn an image from another site into a downloadable picture.)
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   const path = new URL(req.url, 'http://x').searchParams.get('path') || '';
   if (!/^\/[A-Za-z0-9_-]+\.(jpg|jpeg|png|webp)$/.test(path)) {
     res.statusCode = 400; return res.end('Bad poster path');

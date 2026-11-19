@@ -1,6 +1,6 @@
 // GET /api/recommend?mood=laugh,scary&brain=2&who=date&time=135&era=any&skip=subs,anim&like=12345&round=0
 // Returns a ranked pool of ~15 movies with posters, trailer, streaming services and a few hints for the "why" text.
-import { tmdb, sendJson, query, MOOD_GENRES } from './_tmdb.js';
+const { tmdb, sendJson, query, MOOD_GENRES } = require('./_tmdb.js');
 
 const MOODS = Object.keys(MOOD_GENRES);
 const LIGHT = [35, 28, 12, 10751, 16];       // genres that usually mean "easy to follow"
@@ -8,7 +8,7 @@ const HEAVY = [18, 9648, 878, 36, 10752, 80]; // genres that usually ask more at
 const SLOW  = [18, 36, 10752];
 const PACY  = [28, 35, 27, 53, 12];
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   try {
     const q = query(req);
     const surprise = q.surprise === '1';
@@ -51,7 +51,9 @@ export default async function handler(req, res) {
       calls.push(tmdb(`/movie/${likeId}/recommendations`, { page: 1 }).then(r => { r.results.forEach(m => likeRecs.add(m.id)); return { results: [] }; }).catch(() => ({ results: [] })));
       calls.push(tmdb(`/movie/${likeId}`).then(m => { likeGenres = (m.genres || []).map(g => g.id); return { results: [] }; }).catch(() => ({ results: [] })));
     }
-    const pages = await Promise.all(calls.map(p => p.catch(() => ({ results: [] }))));
+    let firstErr = null;
+    const pages = await Promise.all(calls.map(p => p.catch(e => { firstErr = firstErr || e; return { results: [] }; })));
+    if (firstErr && pages.every(p => !(p.results || []).length)) throw firstErr;
     const seen = new Map();
     pages.forEach(p => (p.results || []).forEach(m => { if (!seen.has(m.id) && String(m.id) !== likeId) seen.set(m.id, m); }));
 
@@ -103,6 +105,6 @@ export default async function handler(req, res) {
     sendJson(res, 200, { movies }, surprise ? 0 : 1800);
   } catch (e) {
     console.error(e);
-    sendJson(res, 500, { error: 'Could not reach the movie database. Try again in a moment.' });
+    sendJson(res, 500, { error: 'Could not reach the movie database. Try again in a moment.', code: e.code || 'error' });
   }
 }

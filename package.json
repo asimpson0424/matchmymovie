@@ -1,8 +1,7 @@
 {
   "name": "matchmymovie",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
-  "type": "module",
   "description": "MatchMyMovie: answer a few mood questions, get three movies for tonight.",
   "engines": { "node": ">=18" }
 }

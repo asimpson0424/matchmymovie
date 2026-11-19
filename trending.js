@@ -1,7 +1,7 @@
 // GET /api/trending  ->  three popular movies this week, for the fanned cards on the home page
-import { tmdb, sendJson } from './_tmdb.js';
+const { tmdb, sendJson } = require('./_tmdb.js');
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   try {
     const r = await tmdb('/trending/movie/week', { language: 'en-US' });
     const movies = (r.results || [])

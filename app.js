@@ -225,12 +225,14 @@ async function results(){
   app.innerHTML = `<div class="loadwrap" role="status"><div class="reel" aria-hidden="true"></div><h2>Finding your matches…</h2><p class="hint">Checking thousands of movies against your answers.</p></div>`;
   try {
     const r = await fetch('/api/recommend?' + params());
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error || 'error');
+    let d; try { d = await r.json(); } catch(_){ throw Object.assign(new Error('no api'), {code:'no_api'}); }
+    if (!r.ok) throw Object.assign(new Error(d.error || 'error'), {code: d.code});
     pool = (d.movies || []).filter(m => !hidden.has(m.id));
   } catch(e){
     loading = false;
-    app.innerHTML = `<div class="results-head"><h2>We couldn't reach the movie database</h2><p>Check your connection and try again.</p></div>
+    console.warn('MatchMyMovie: recommend failed', e && e.code);
+    const setup = e && ['missing_token','bad_token','no_api'].includes(e.code);
+    app.innerHTML = `<div class="results-head"><h2>We couldn't reach the movie database</h2><p>${setup ? 'The site is still being set up. Please try again a little later.' : 'Check your connection and try again.'}</p></div>
       <div class="footer-actions"><button class="btn" onclick="results()">Try again</button><button class="btn white" onclick="start()">Start over</button></div>`;
     return;
   }
