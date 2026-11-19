@@ -63,6 +63,16 @@ const andJoin = a => a.length<=1 ? a.join("") : a.slice(0,-1).join(", ") + " and
 const moodOf = m => (m.moodHits && m.moodHits[0]) || Object.keys(MOOD_GENRES).find(k => MOOD_GENRES[k].some(g => (m.genreIds||[]).includes(g))) || 'laugh';
 const byId = id => pool.find(m => m.id === id) || LIST.find(m => m.id === id);
 
+/* ---------- Anonymous stats (no names, accounts or personal info) ---------- */
+let MODE = 'short', S = null, QSEEN = new Set();  // S = the current search: its moods, swaps so far, sets of three seen, picked yet?
+function track(e, data = {}){
+  try {
+    const body = JSON.stringify({ e, ...data });
+    if (navigator.sendBeacon && navigator.sendBeacon('/api/event', new Blob([body], {type:'application/json'}))) return;
+    fetch('/api/event', {method:'POST', headers:{'Content-Type':'application/json'}, body, keepalive:true}).catch(()=>{});
+  } catch(_){}
+}
+
 /* ---------- Home ---------- */
 let TRENDING = null;
 function mini(m, cls){
@@ -111,12 +121,16 @@ function surprise(){
   const moods = Object.keys(MOOD_GENRES);
   A = {mood:[moods[Math.floor(Math.random()*moods.length)]], surprise:true};
   QS = []; hidden = new Set(); editing = false; round = 0;
-  results();
+  track('start', {mode:'lucky'});
+  results(true);
 }
 function begin(mode, mood){
   QS = (mode==='short' ? SHORT : LONG).map(k=>Q.find(q=>q.key===k));
+  MODE = mode; QSEEN = new Set();
   A = {}; step = 0; hidden = new Set(); editing = false; round = 0;
   if (mood){ A.mood = [mood]; step = 1; }
+  track('start', {mode: mood ? 'mood' : mode});
+  if (mood){ QSEEN.add('mood'); track('q', {mode:MODE, key:'mood'}); }  // mood was answered on the home page
   ask();
 }
 
@@ -125,6 +139,7 @@ function ask(){
   document.body.classList.remove('wide');
   document.getElementById('restart').style.display='inline';
   const q = QS[step];
+  if (!editing && !QSEEN.has(q.key)){ QSEEN.add(q.key); track('q', {mode:MODE, key:q.key}); }
   let body = "";
   if (q.type==="text"){
     body = `
@@ -157,7 +172,7 @@ function ask(){
     ${body}`;
   if (q.type==="text") document.getElementById('like').focus();
 }
-function next(){ if (editing){ editing=false; round=0; return results(); } step++; step < QS.length ? ask() : results(); }
+function next(){ if (editing){ editing=false; round=0; return results(true); } step++; step < QS.length ? ask() : results(true); }
 function pick(i){ A[QS[step].key] = QS[step].opts[i][0]; next(); }
 function back(){ if (editing){ editing=false; return render(); } step--; ask(); }
 function toggle(i){
@@ -218,7 +233,7 @@ function params(){
   p.set('round', round);
   return p.toString();
 }
-async function results(){
+async function results(fresh=false){
   document.body.classList.remove('wide');
   document.getElementById('restart').style.display='inline';
   loading = true;
@@ -228,12 +243,16 @@ async function results(){
     let d; try { d = await r.json(); } catch(_){ throw Object.assign(new Error('no api'), {code:'no_api'}); }
     if (!r.ok) throw Object.assign(new Error(d.error || 'error'), {code: d.code});
     pool = (d.movies || []).filter(m => !hidden.has(m.id));
+    if (fresh || !S){
+      S = { mood:(A.mood||[]).slice(), swaps:0, sets:1, picked:false, like:!!A.like };
+      track(pool.length ? 'search' : 'empty', {mood:S.mood, like:S.like});
+    }
   } catch(e){
     loading = false;
     console.warn('MatchMyMovie: recommend failed', e && e.code);
     const setup = e && ['missing_token','bad_token','no_api'].includes(e.code);
     app.innerHTML = `<div class="results-head"><h2>We couldn't reach the movie database</h2><p>${setup ? 'The site is still being set up. Please try again a little later.' : 'Check your connection and try again.'}</p></div>
-      <div class="footer-actions"><button class="btn" onclick="results()">Try again</button><button class="btn white" onclick="start()">Start over</button></div>`;
+      <div class="footer-actions"><button class="btn" onclick="results(true)">Try again</button><button class="btn white" onclick="start()">Start over</button></div>`;
     return;
   }
   loading = false;
@@ -241,13 +260,15 @@ async function results(){
   render();
 }
 function nextFromPool(){ const used = new Set(shown.map(m=>m.id)); return pool.find(m=>!hidden.has(m.id) && !used.has(m.id)); }
-function swap(i){
+function swap(i, reason){
+  if (S){ S.swaps++; track('swap', {mood:S.mood, reason, title:shown[i].title}); }
   hidden.add(shown[i].id);
   const n = nextFromPool();
   if (n) { shown[i] = n; render(false); }
   else { shown.splice(i,1); if (!shown.length){ round++; results(); } else render(false); }
 }
 function reshuffle(){
+  if (S){ S.sets++; track('more', {mood:S.mood}); }
   shown.forEach(m=>hidden.add(m.id));
   const fresh = pool.filter(m=>!hidden.has(m.id)).slice(0,3);
   if (fresh.length===3){ shown = fresh; render(); window.scrollTo({top:0,behavior:'smooth'}); }
@@ -343,14 +364,15 @@ function card(m, i, o={}){
       <a class="pill" href="${esc(m.watchLink)}" target="_blank" rel="noopener">Where to watch</a>
       <span class="sp"></span>${heart}
     </div>
-    <button class="btn full pickbtn" onclick="chooseMovie(${m.id})">${SV('<path d="M3 9a2 2 0 0 0 0 4v5a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-5a2 2 0 0 0 0-4V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z"/><path d="M14 5v14" stroke-dasharray="2 2.5"/>',20)}We're watching this one</button>
+    <button class="btn full pickbtn" onclick="chooseMovie(${m.id}${o.listed?',true':''})">${SV('<path d="M3 9a2 2 0 0 0 0 4v5a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-5a2 2 0 0 0 0-4V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z"/><path d="M14 5v14" stroke-dasharray="2 2.5"/>',20)}We're watching this one</button>
     ${o.listed?'':`<div class="swaps"><span>Not this one?</span>
-      <button onclick="swap(${i})">Seen it</button><button onclick="swap(${i})">Can't stream it</button><button onclick="swap(${i})">Not tonight</button></div>`}
+      <button onclick="swap(${i},'seen')">Seen it</button><button onclick="swap(${i},'stream')">Can't stream it</button><button onclick="swap(${i},'not')">Not tonight</button></div>`}
   </article>`;
 }
 
 /* ---------- Trailer ---------- */
 function openTrailer(key, title){
+  track('trailer');
   const ov = document.getElementById('share');
   ov.innerHTML = `<div class="share-panel wide-panel" role="dialog" aria-modal="true" aria-label="Trailer for ${title}">
     <button class="round share-x" onclick="closeShare()" aria-label="Close">${SV('<path d="M6 6l12 12M18 6L6 18"/>',20)}</button>
@@ -368,7 +390,9 @@ function saveList(){ try { localStorage.setItem('mmm_list', JSON.stringify(LIST)
 function updateCount(){ document.getElementById('listcount').textContent = LIST.length; }
 function toggleSave(id){
   const m = byId(id); if (!m) return;
-  LIST = LIST.some(x=>x.id===id) ? LIST.filter(x=>x.id!==id) : [...LIST, m];
+  const adding = !LIST.some(x=>x.id===id);
+  LIST = adding ? [...LIST, m] : LIST.filter(x=>x.id!==id);
+  if (adding) track('save');
   saveList();
   document.querySelectorAll(`[data-save="${id}"]`).forEach(b=>{
     const on = LIST.some(x=>x.id===id); b.classList.toggle('saved', on); b.setAttribute('aria-pressed', on);
@@ -478,9 +502,11 @@ async function drawTicket(m){
   return out;
 }
 
-async function chooseMovie(id){
+async function chooseMovie(id, fromList=false){
   const m = byId(id); if(!m) return;
   shareMovie = m;
+  if (fromList || !S) track('pick_list', {title:m.title});
+  else { track('pick', {mood:S.mood, title:m.title, swaps:S.swaps, sets:S.sets, first:!S.picked, like:S.like}); S.picked = true; }
   const ov = document.getElementById('share');
   ov.innerHTML = `<div class="share-panel" role="dialog" aria-modal="true" aria-labelledby="share-h">
       <button class="round share-x" onclick="closeShare()" aria-label="Close">${SV('<path d="M6 6l12 12M18 6L6 18"/>',20)}</button>
@@ -506,7 +532,8 @@ async function doShare(){
   const msg = document.getElementById('sharemsg');
   try {
     const file = new File([shareBlob], `matchmymovie-${shareMovie.title.toLowerCase().replace(/[^a-z0-9]+/g,'-')}.png`, {type:'image/png'});
-    if (navigator.canShare && navigator.canShare({files:[file]})) { await navigator.share({files:[file], text:shareText()}); return; }
+    track('share');
+    if (navigator.canShare && navigator.canShare({files:[file]})) { await navigator.share({files:[file], text:shareText()}); track('shared'); return; }
     // Desktop fallback: download the image
     const a = document.createElement('a'); a.href = URL.createObjectURL(shareBlob); a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
     msg.textContent = 'Saved the ticket image. Post it anywhere you like.';

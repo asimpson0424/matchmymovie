@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>MatchMyMovie stats</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{ --butter:#FFE9A8; --ink:#1F2350; --ink2:#4A4E78; --muted:#6B6E8F; --white:#fff; --line:#E7E3F2;
+    --s1:#2F6FD1; --s2:#FF6A4D; --display:'Bricolage Grotesque',system-ui,sans-serif; --body:'Figtree',system-ui,sans-serif; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--butter);color:var(--ink);font:400 15px/1.5 var(--body);min-height:100vh}
+  :focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+  .wrap{max-width:1100px;margin:0 auto;padding:28px 20px 80px}
+  header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:26px;flex-wrap:wrap}
+  h1{font:800 34px/1 var(--display);letter-spacing:-.5px}
+  h2{font:800 20px/1.2 var(--display);margin-bottom:4px}
+  .sub{color:var(--ink2);font-size:14px;margin-bottom:14px}
+  a{color:var(--ink)}
+  .btn{min-height:44px;padding:0 20px;border-radius:999px;border:2.5px solid var(--ink);background:#FF6A4D;box-shadow:3px 3px 0 var(--ink);font:700 15px var(--body);color:var(--ink);cursor:pointer}
+  .btn.white{background:var(--white)}
+  .card{background:var(--white);border:2.5px solid var(--ink);border-radius:20px;box-shadow:4px 4px 0 var(--ink);padding:20px 22px}
+  .grid{display:grid;gap:18px}
+  .tiles{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+  .two{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+  .tile .label{font-weight:600;color:var(--ink2);font-size:14px}
+  .tile .big{font:800 44px/1.05 var(--display);margin:4px 0 2px}
+  .tile .note{font-size:13px;color:var(--muted)}
+  section{margin-top:18px}
+  /* daily chart */
+  .legend{display:flex;gap:16px;font-size:13px;font-weight:600;margin-bottom:10px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  .chart{position:relative;height:216px;margin-top:20px;display:flex;align-items:flex-end;gap:2px;border-bottom:1.5px solid #C9C6DA;padding-top:8px}
+  .gridline{position:absolute;left:0;right:0;border-top:1px solid #F0EEF7;font-size:11px;color:var(--muted)}
+  .gridline span{position:absolute;left:0;top:-15px}
+  .day{flex:1;display:flex;align-items:flex-end;justify-content:center;gap:2px;height:100%;cursor:default;position:relative;z-index:1}
+  .day:hover{background:rgba(47,111,209,.06)}
+  .bar{width:42%;max-width:12px;border-radius:4px 4px 0 0;min-height:0}
+  .bar.a{background:var(--s1)} .bar.b{background:var(--s2)}
+  .xlabels{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:6px}
+  .tip{position:fixed;pointer-events:none;background:var(--ink);color:#fff;font-size:13px;padding:8px 10px;border-radius:10px;line-height:1.4;z-index:10;display:none;white-space:nowrap}
+  .tip b{font-weight:700}
+  /* horizontal bars */
+  .hrow{display:grid;grid-template-columns:minmax(110px,170px) 1fr 64px;align-items:center;gap:10px;padding:6px 0}
+  .hrow .name{font-weight:600;font-size:14px}
+  .track{height:14px;border-radius:0 4px 4px 0;background:#F3F1F9;position:relative}
+  .fill{height:100%;border-radius:0 4px 4px 0;background:var(--s1)}
+  .hrow .val{font-weight:700;font-size:14px;text-align:right;font-variant-numeric:tabular-nums}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{text-align:left;font-weight:700;color:var(--ink2);font-size:13px;padding:6px 8px;border-bottom:1.5px solid var(--line)}
+  td{padding:8px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+  td.num,th.num{text-align:right}
+  ol.top{padding-left:20px;font-size:14px}
+  ol.top li{padding:3px 0}
+  ol.top span{color:var(--muted);margin-left:6px}
+  .empty{color:var(--muted);font-size:14px}
+  .login{max-width:420px;margin:12vh auto}
+  .login input{width:100%;margin:14px 0;border:2.5px solid var(--ink);border-radius:14px;padding:13px 14px;font:600 17px var(--body);color:var(--ink)}
+  .err{color:#B3261E;font-weight:600;font-size:14px;min-height:20px}
+  details summary{cursor:pointer;font-weight:600;font-size:13px;color:var(--ink2);margin-top:10px}
+  @media (max-width:520px){ .tile .big{font-size:36px} .hrow{grid-template-columns:96px 1fr 52px} }
+</style>
+</head>
+<body>
+<div class="wrap" id="root"></div>
+<div class="tip" id="tip" role="tooltip"></div>
+<script>
+const root = document.getElementById('root');
+const MOODS = {laugh:'Make me laugh', tense:'Edge of my seat', moved:'A good cry', wow:'Blow my mind', scary:'Spook me'};
+const QN = {mood:'Mood', like:'Movie you loved', brain:'Brainpower', who:"Who's watching", time:'Time', era:'New or old', skip:'Anything to skip'};
+const ORDER = {short:['mood','like','who','time'], long:['mood','like','brain','who','time','era','skip']};
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pct = (a,b) => b ? Math.round(a/b*100) + '%' : '–';
+const n = v => (v||0).toLocaleString('en-US');
+let KEY = ''; try { KEY = sessionStorage.getItem('mmm_stats') || ''; } catch(_){}
+
+function login(msg=''){
+  root.innerHTML = `<div class="card login">
+    <h1 style="font-size:28px">MatchMyMovie stats</h1>
+    <form onsubmit="event.preventDefault();KEY=this.p.value;load()">
+      <label for="p" class="sub" style="display:block;margin:10px 0 0">Password</label>
+      <input id="p" name="p" type="password" autocomplete="current-password" required>
+      <div class="err" role="alert">${esc(msg)}</div>
+      <button class="btn" type="submit">Show stats</button>
+    </form></div>`;
+  document.getElementById('p').focus();
+}
+
+async function load(){
+  let r, d;
+  try { r = await fetch('/api/stats', {headers:{'x-stats-key':KEY}}); d = await r.json(); }
+  catch(e){ return login("Couldn't reach the site. Try again."); }
+  if (r.status===401){ try{sessionStorage.removeItem('mmm_stats')}catch(_){}; return login('Wrong password.'); }
+  if (!r.ok) return login(d.message || 'Something went wrong.');
+  try { sessionStorage.setItem('mmm_stats', KEY); } catch(_){}
+  render(d);
+}
+
+function hbars(rows, max){
+  max = max || Math.max(1, ...rows.map(r=>r.v));
+  return rows.map(r=>`<div class="hrow"><span class="name">${esc(r.name)}</span>
+    <div class="track" aria-hidden="true"><div class="fill" style="width:${(r.v/max*100).toFixed(1)}%"></div></div>
+    <span class="val">${r.label ?? n(r.v)}</span></div>`).join('');
+}
+function topList(arr){ return arr.length ? `<ol class="top">${arr.map(x=>`<li>${esc(x.title)}<span>${n(x.n)}</span></li>`).join('')}</ol>` : '<p class="empty">Nothing yet.</p>'; }
+
+function render(d){
+  const t = d.total;
+  const searches = t.search||0, matched = t.matched||0;
+  const avgSwaps = matched ? (t.swaps_before_pick/matched).toFixed(1) : '–';
+  const firstSet = pct(t.first_three||0, matched);
+  const swaps = [{name:'Seen it', v:t.swap_seen||0},{name:"Can't stream it", v:t.swap_stream||0},{name:'Not tonight', v:t.swap_not||0},{name:'Show me 3 more', v:t.more||0}];
+  const maxDay = Math.max(1, ...d.days.map(x=>x.search||0));
+  const step = maxDay <= 4 ? 1 : Math.ceil(maxDay/4);
+  const gl = []; for (let v=step; v<=maxDay; v+=step) gl.push(v);
+  const fmtDay = s => new Date(s+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
+
+  root.innerHTML = `
+  <header>
+    <div><h1>MatchMyMovie stats</h1><p class="sub" style="margin:6px 0 0">All anonymous. Counting since tracking was switched on. Updated ${new Date(d.generated).toLocaleString('en-US',{dateStyle:'medium',timeStyle:'short'})}.</p></div>
+    <div style="display:flex;gap:10px"><button class="btn white" onclick="load()">Refresh</button><a class="btn white" style="display:inline-flex;align-items:center;text-decoration:none" href="/">Open site</a></div>
+  </header>
+
+  <div class="grid tiles">
+    <div class="card tile"><div class="label">Match rate</div><div class="big">${pct(matched, searches)}</div><div class="note">Searches where someone tapped "We're watching this one"</div></div>
+    <div class="card tile"><div class="label">Searches</div><div class="big">${n(searches)}</div><div class="note">Times someone got a lineup${t.empty?`, plus ${n(t.empty)} with no results`:''}</div></div>
+    <div class="card tile"><div class="label">Movies picked</div><div class="big">${n(matched)}</div><div class="note">${n(t.share)} shared a ticket${t.shared?`, ${n(t.shared)} sent it`:''}</div></div>
+    <div class="card tile"><div class="label">Swaps before a pick</div><div class="big">${avgSwaps}</div><div class="note">Average. Picked from the first three: ${firstSet}</div></div>
+  </div>
+
+  <section class="card">
+    <h2>Last 30 days</h2>
+    <p class="sub">Searches each day, and how many ended with a pick.</p>
+    <div class="legend"><span><i style="background:var(--s1)"></i>Searches</span><span><i style="background:var(--s2)"></i>Picked a movie</span></div>
+    <div class="chart" id="chart">
+      ${gl.map(v=>`<div class="gridline" style="bottom:${v/maxDay*100}%"><span>${v}</span></div>`).join('')}
+      ${d.days.map((x,i)=>`<div class="day" data-i="${i}" tabindex="0" aria-label="${fmtDay(x.day)}: ${x.search||0} searches, ${x.matched||0} picks">
+        <div class="bar a" style="height:${(x.search||0)/maxDay*100}%"></div><div class="bar b" style="height:${(x.matched||0)/maxDay*100}%"></div></div>`).join('')}
+    </div>
+    <div class="xlabels"><span>${fmtDay(d.days[0].day)}</span><span>${fmtDay(d.days[Math.floor(d.days.length/2)].day)}</span><span>Today</span></div>
+    <details><summary>Show as a table</summary>
+      <table style="margin-top:8px"><thead><tr><th>Day</th><th class="num">Searches</th><th class="num">Picks</th><th class="num">Match rate</th></tr></thead>
+      <tbody>${d.days.slice().reverse().filter(x=>x.search||x.matched).map(x=>`<tr><td>${fmtDay(x.day)}</td><td class="num">${n(x.search)}</td><td class="num">${n(x.matched)}</td><td class="num">${pct(x.matched||0,x.search||0)}</td></tr>`).join('') || '<tr><td colspan="4" class="empty">No searches yet.</td></tr>'}</tbody></table>
+    </details>
+  </section>
+
+  <div class="grid two" style="margin-top:18px">
+    <section class="card" style="margin:0">
+      <h2>Why picks got passed over</h2>
+      <p class="sub">Lots of "Seen it" means the picks are too obvious. "Not tonight" means the mood matching missed.</p>
+      ${hbars(swaps)}
+    </section>
+    <section class="card" style="margin:0">
+      <h2>Match rate by mood</h2>
+      <p class="sub">Which moods land and which need tuning.</p>
+      <div style="overflow-x:auto"><table style="min-width:440px"><thead><tr><th>Mood</th><th class="num">Searches</th><th class="num">Picks</th><th class="num">Rate</th><th>Top reason to pass</th></tr></thead>
+      <tbody>${Object.keys(MOODS).map(m=>{ const x=d.moods[m]||{}; const rs=[['Seen it',x.swap_seen||0],["Can't stream",x.swap_stream||0],['Not tonight',x.swap_not||0]].sort((a,b)=>b[1]-a[1]);
+        return `<tr><td>${MOODS[m]}</td><td class="num">${n(x.search)}</td><td class="num">${n(x.matched)}</td><td class="num"><b>${pct(x.matched||0,x.search||0)}</b></td><td>${rs[0][1]?rs[0][0]:'–'}</td></tr>`; }).join('')}</tbody></table></div>
+    </section>
+  </div>
+
+  <div class="grid two" style="margin-top:18px">
+    ${['short','long'].map(mode=>{ const q=d.q[mode]||{}; const first=Math.max(1,...ORDER[mode].map(k=>q[k]||0));
+      return `<section class="card" style="margin:0"><h2>${mode==='short'?'Quick pick':'In-depth'}: where people drop off</h2>
+        <p class="sub">How many people reached each question.</p>
+        ${Object.values(q).some(Boolean) ? hbars(ORDER[mode].map(k=>({name:QN[k], v:q[k]||0, label:`${n(q[k])} · ${pct(q[k]||0, first)}`})), first) : '<p class="empty">Nothing yet.</p>'}</section>`; }).join('')}
+  </div>
+
+  <div class="grid two" style="margin-top:18px">
+    <section class="card" style="margin:0"><h2>Most picked</h2><p class="sub">Movies people chose to watch.</p>${topList(d.top.picked)}</section>
+    <section class="card" style="margin:0"><h2>Most "Seen it"</h2><p class="sub">Candidates to show less often.</p>${topList(d.top.seen)}</section>
+    <section class="card" style="margin:0"><h2>Most "Not tonight"</h2><p class="sub">Probably a poor fit for the mood they came up for.</p>${topList(d.top.not)}</section>
+    <section class="card" style="margin:0"><h2>Most "Can't stream it"</h2><p class="sub">Hard to find on subscriptions.</p>${topList(d.top.stream)}</section>
+  </div>
+
+  <section class="card">
+    <h2>Everything else</h2>
+    <table><tbody>
+      <tr><td>Started a quick pick</td><td class="num">${n(d.start.short)}</td></tr>
+      <tr><td>Started an in-depth match</td><td class="num">${n(d.start.long)}</td></tr>
+      <tr><td>Started from a mood button on the home page</td><td class="num">${n(d.start.mood)}</td></tr>
+      <tr><td>Hit "Feeling lucky"</td><td class="num">${n(d.start.lucky)}</td></tr>
+      <tr><td>Searches that named a movie they loved</td><td class="num">${n(t.search_like)} <span style="color:var(--muted)">(match rate ${pct(t.matched_like||0, t.search_like||0)})</span></td></tr>
+      <tr><td>Saved a movie for later</td><td class="num">${n(t.save)}</td></tr>
+      <tr><td>Watched a trailer</td><td class="num">${n(t.trailer)}</td></tr>
+      <tr><td>Picked a movie from their saved list</td><td class="num">${n(t.pick_list)}</td></tr>
+    </tbody></table>
+  </section>`;
+
+  // hover / focus tooltips on the daily chart
+  const tip = document.getElementById('tip');
+  document.querySelectorAll('.day').forEach(el=>{
+    const x = d.days[+el.dataset.i];
+    const show = ev => { const r = el.getBoundingClientRect();
+      tip.innerHTML = `<b>${fmtDay(x.day)}</b><br>${n(x.search)} searches<br>${n(x.matched)} picked (${pct(x.matched||0,x.search||0)})`;
+      tip.style.display='block'; const tw = tip.offsetWidth;
+      tip.style.left = Math.min(window.innerWidth-tw-8, Math.max(8, r.left + r.width/2 - tw/2)) + 'px';
+      tip.style.top = (r.top - tip.offsetHeight - 8 + (r.height - Math.max(...[...el.children].map(c=>c.offsetHeight)))) + 'px'; };
+    el.addEventListener('mouseenter', show); el.addEventListener('focus', show);
+    el.addEventListener('mouseleave', ()=>tip.style.display='none'); el.addEventListener('blur', ()=>tip.style.display='none');
+  });
+}
+
+KEY ? load() : login();
+</script>
+</body>
+</html>

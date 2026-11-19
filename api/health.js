@@ -1,5 +1,6 @@
 // GET /api/health  ->  a plain-English check that the TMDB key is set up. Never shows the key itself.
 const { readToken, tmdb } = require('./_tmdb.js');
+const { dbConf } = require('./_db.js');
 
 module.exports = async function handler(req, res) {
   const tok = readToken();
@@ -15,6 +16,8 @@ module.exports = async function handler(req, res) {
         : 'Could not reach TMDB right now (' + (e.status || e.message) + '). Try again in a minute.';
     }
   }
+  out.stats_database = dbConf() ? 'connected' : 'not connected (Vercel > Storage > Upstash Redis)';
+  out.stats_password = process.env.STATS_PASSWORD ? 'set' : 'not set (add STATS_PASSWORD)';
   res.statusCode = 200;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
