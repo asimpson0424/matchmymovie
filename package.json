@@ -3,5 +3,10 @@
   "version": "1.0.1",
   "private": true,
   "description": "MatchMyMovie: answer a few mood questions, get three movies for tonight.",
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1"
+  }
 }
